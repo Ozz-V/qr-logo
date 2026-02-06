@@ -32,13 +32,20 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # --- TRUCO PARA EL ICONO ---
+      # Creamos la carpeta assets y metemos el icono ahí para que Android lo vea
+      - name: Prepare Assets
+        run: |
+          mkdir -p assets
+          cp icon.png assets/icon.png
+
       - name: Build APK with Flet
-        # Volvemos al comando simple que SABEMOS que funciona
+        # Usamos el comando estándar, el icono se tomará de la carpeta assets creada arriba
         run: |
           yes | flet build apk --verbose
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: QR-Plus-Logo-v1.0
+          name: QR-Pro-App
           path: build/apk/app-release.apk
