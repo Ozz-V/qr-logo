@@ -7,7 +7,7 @@ import os
 import traceback
 
 # ============================================================================
-# 1. MOTOR GRÁFICO (SIN CAMBIOS)
+# 1. MOTOR GRÁFICO (IGUAL QUE ANTES)
 # ============================================================================
 def hex_to_rgb(hex_col):
     try:
@@ -69,16 +69,18 @@ def generar_qr_full_engine(params, data_string):
         return None, None
 
 # ============================================================================
-# 2. INTERFAZ MÓVIL (AUSTERIDAD TOTAL)
+# 2. INTERFAZ MÓVIL "MODO MANUAL" (CERO ATAJOS)
 # ============================================================================
 
 def main(page: ft.Page):
     try:
         page.title = "QR Creator"
-        page.theme_mode = ft.ThemeMode.DARK
+        # CAMBIO 1: Strings en vez de constantes
+        page.theme_mode = "dark" 
         page.bgcolor = "#111111"
         page.padding = 20
-        page.scroll = "AUTO"
+        # CAMBIO 2: Booleano en vez de constante AUTO
+        page.scroll = True 
         
         # --- ESTADO ---
         qr_bytes_data = None
@@ -90,7 +92,6 @@ def main(page: ft.Page):
         page.overlay.append(picker_logo)
         page.overlay.append(picker_save)
 
-        # Funciones SIN tipos complejos para evitar errores
         def on_logo_picked(e):
             if e.files:
                 logo_path_ref.current = e.files[0].path
@@ -103,33 +104,45 @@ def main(page: ft.Page):
                 try:
                     with open(e.path, "wb") as f:
                         f.write(qr_bytes_data)
-                    page.show_snack_bar(ft.SnackBar(ft.Text("¡Imagen Guardada!"), open=True))
+                    page.show_snack_bar(ft.SnackBar(ft.Text("Guardado"), open=True))
                 except Exception as ex:
                     page.show_snack_bar(ft.SnackBar(ft.Text(f"Error: {ex}"), open=True))
 
         picker_logo.on_result = on_logo_picked
         picker_save.on_result = on_save_file
 
-        # --- UI (SIN ICONOS PARA EVITAR CRASH) ---
+        # --- UI ---
         
-        # Header simple solo con texto
+        # HEADER
+        header_text = ft.Text("QR + Logo", size=24, weight="bold", text_align="center")
         header = ft.Container(
-            content=ft.Text("QR + Logo", size=24, weight="bold", text_align="center"),
-            bgcolor="#1a1a1a", padding=15, border_radius=10, width=float("inf")
+            content=header_text,
+            bgcolor="#1a1a1a", 
+            padding=15, 
+            border_radius=10, 
+            width=float("inf"),
+            # CAMBIO 3: NO USAR ft.alignment.center
+            # Usamos alignment=ft.Alignment(0, 0) que es el centro matemático (x=0, y=0)
+            alignment=ft.Alignment(0, 0) 
         )
 
-        txt_1 = ft.TextField(label="Escribe tu enlace o texto", bgcolor="#222222", border_color="blue")
+        txt_1 = ft.TextField(label="Escribe tu enlace", bgcolor="#222222", border_color="blue")
         
-        # BOTONES: Solo texto, sin iconos (icon=ft.icons.IMAGE eliminado)
-        btn_logo_select = ft.ElevatedButton("Subir Logo (Opcional)", on_click=lambda _: picker_logo.pick_files(), bgcolor="#333333", color="white", height=45)
+        btn_logo_select = ft.ElevatedButton("Subir Logo", on_click=lambda _: picker_logo.pick_files(), bgcolor="#333333", color="white", height=45)
         
         img_res = ft.Image(src="", width=280, height=280, fit="contain", visible=False, border_radius=10)
         
+        # CAMBIO 4: Alignment manual también aquí
+        img_container = ft.Container(
+            content=img_res, 
+            padding=20,
+            alignment=ft.Alignment(0, 0) 
+        )
+
         btn_save = ft.ElevatedButton("Descargar PNG", on_click=lambda _: picker_save.save_file(file_name="mi_qr.png"), disabled=True, bgcolor="blue", color="white", height=45)
 
         def generar(e):
             if not txt_1.value:
-                page.show_snack_bar(ft.SnackBar(ft.Text("¡Escribe algo primero!"), open=True))
                 return
             
             btn_gen.text = "Creando..."
@@ -161,13 +174,12 @@ def main(page: ft.Page):
                 txt_1,
                 btn_logo_select,
                 btn_gen,
-                ft.Container(content=img_res, alignment=ft.alignment.center, padding=20),
+                img_container,
                 btn_save
             ], spacing=20)
         )
 
     except Exception as e:
-        # Si falla, imprimimos el error completo en pantalla
         page.add(ft.Text(f"ERROR: {traceback.format_exc()}", color="red"))
 
 ft.app(target=main, assets_dir="assets")
