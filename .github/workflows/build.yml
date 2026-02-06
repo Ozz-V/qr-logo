@@ -32,20 +32,18 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # --- ESTO ASEGURA QUE SE VEA EL LOGO ---
       - name: Prepare Assets
         run: |
           mkdir -p assets
           cp icon.png assets/icon.png
 
       - name: Build APK with Flet
-        # QUITAMOS --product-name PORQUE DABA ERROR
-        # Usamos el comando simple que SABEMOS que funciona
+        # SIN el argumento --product-name que da error
         run: |
           yes | flet build apk --verbose
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Qr-Logo-App-Full
+          name: QR-Logo-Full
           path: build/apk/app-release.apk
