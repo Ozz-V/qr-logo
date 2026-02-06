@@ -33,13 +33,15 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Build APK with Flet
-        # El "yes |" sigue ahí para responder "sí" automáticamente
+        # AQUI ESTÁ TU CONFIGURACIÓN:
+        # --product-name: El nombre visible en el celular ("QR + Logo")
+        # --build-name: La versión visible (1.0)
+        # --build-number: El número de control interno (1)
         run: |
-          yes | flet build apk --verbose
+          yes | flet build apk --product-name "QR + Logo" --build-name "1.0" --build-number 1 --verbose
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          # AQUI ESTA EL CAMBIO: La ruta correcta ahora es esta:
+          name: QR-Plus-Logo-v1.0
           path: build/apk/app-release.apk
