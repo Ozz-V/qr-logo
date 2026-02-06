@@ -1,13 +1,13 @@
 import flet as ft
 import qrcode
-from PIL import Image, ImageDraw, ImageOps, ImageFilter
+from PIL import Image, ImageDraw, ImageOps
 import base64
 import io
 import os
 import traceback
 
 # ============================================================================
-# 1. MOTOR GRÁFICO (Optimizado)
+# 1. MOTOR GRÁFICO (SIN CAMBIOS)
 # ============================================================================
 def hex_to_rgb(hex_col):
     try:
@@ -23,11 +23,10 @@ def crear_fondo(w, h, mode, c1, c2, direction):
 
 def generar_qr_full_engine(params, data_string):
     try:
-        logo_path = params['logo_path']; estilo = params['estilo']
+        logo_path = params['logo_path']; 
         qr_body_c1 = hex_to_rgb(params['c1'])
         bg_c1 = hex_to_rgb(params['bg_c1'])
         
-        # Lógica de Logo Segura
         usar_logo = False
         if logo_path and os.path.exists(logo_path): usar_logo = True
 
@@ -70,7 +69,7 @@ def generar_qr_full_engine(params, data_string):
         return None, None
 
 # ============================================================================
-# 2. INTERFAZ MÓVIL (CORREGIDA - SIN ERROR DE EVENTO)
+# 2. INTERFAZ MÓVIL (AUSTERIDAD TOTAL)
 # ============================================================================
 
 def main(page: ft.Page):
@@ -85,13 +84,13 @@ def main(page: ft.Page):
         qr_bytes_data = None
         logo_path_ref = ft.Ref[str]() 
         
-        # --- FILE PICKERS (Solución al error rojo) ---
+        # --- FILE PICKERS ---
         picker_logo = ft.FilePicker()
         picker_save = ft.FilePicker()
         page.overlay.append(picker_logo)
         page.overlay.append(picker_save)
 
-        # --- AQUI ESTABA EL ERROR: Quitamos ": ft.FilePickerResultEvent" ---
+        # Funciones SIN tipos complejos para evitar errores
         def on_logo_picked(e):
             if e.files:
                 logo_path_ref.current = e.files[0].path
@@ -111,34 +110,28 @@ def main(page: ft.Page):
         picker_logo.on_result = on_logo_picked
         picker_save.on_result = on_save_file
 
-        # --- UI HEADER ---
-        # Intentamos cargar el icono desde la carpeta assets
-        try:
-            # En Android, 'assets/icon.png' se accede simplemente como 'icon.png' si configuramos bien el build.yml
-            header_img = ft.Image(src="icon.png", width=60, height=60, fit="contain")
-        except:
-            header_img = ft.Icon(ft.icons.QR_CODE, size=60, color="white")
-
+        # --- UI (SIN ICONOS PARA EVITAR CRASH) ---
+        
+        # Header simple solo con texto
         header = ft.Container(
-            content=ft.Row([header_img, ft.Text("QR + Logo", size=24, weight="bold")], alignment="center"),
-            bgcolor="#1a1a1a", padding=15, border_radius=10
+            content=ft.Text("QR + Logo", size=24, weight="bold", text_align="center"),
+            bgcolor="#1a1a1a", padding=15, border_radius=10, width=float("inf")
         )
 
-        # --- INPUTS ---
         txt_1 = ft.TextField(label="Escribe tu enlace o texto", bgcolor="#222222", border_color="blue")
         
-        btn_logo_select = ft.ElevatedButton("Subir Logo (Opcional)", icon=ft.icons.IMAGE, on_click=lambda _: picker_logo.pick_files(), bgcolor="#333333", color="white", height=45)
+        # BOTONES: Solo texto, sin iconos (icon=ft.icons.IMAGE eliminado)
+        btn_logo_select = ft.ElevatedButton("Subir Logo (Opcional)", on_click=lambda _: picker_logo.pick_files(), bgcolor="#333333", color="white", height=45)
         
         img_res = ft.Image(src="", width=280, height=280, fit="contain", visible=False, border_radius=10)
         
-        btn_save = ft.ElevatedButton("Descargar PNG", icon=ft.icons.DOWNLOAD, on_click=lambda _: picker_save.save_file(file_name="mi_qr.png"), disabled=True, bgcolor="blue", color="white", height=45)
+        btn_save = ft.ElevatedButton("Descargar PNG", on_click=lambda _: picker_save.save_file(file_name="mi_qr.png"), disabled=True, bgcolor="blue", color="white", height=45)
 
         def generar(e):
             if not txt_1.value:
                 page.show_snack_bar(ft.SnackBar(ft.Text("¡Escribe algo primero!"), open=True))
                 return
             
-            # Loading visual
             btn_gen.text = "Creando..."
             page.update()
             
@@ -165,18 +158,16 @@ def main(page: ft.Page):
         page.add(
             ft.Column([
                 header,
-                ft.Text("Datos:", color="grey"),
                 txt_1,
-                ft.Divider(),
                 btn_logo_select,
-                ft.Divider(height=10, color="transparent"),
                 btn_gen,
                 ft.Container(content=img_res, alignment=ft.alignment.center, padding=20),
                 btn_save
-            ], spacing=15)
+            ], spacing=20)
         )
 
     except Exception as e:
-        page.add(ft.Text(f"Error Crítico: {traceback.format_exc()}", color="red"))
+        # Si falla, imprimimos el error completo en pantalla
+        page.add(ft.Text(f"ERROR: {traceback.format_exc()}", color="red"))
 
 ft.app(target=main, assets_dir="assets")
