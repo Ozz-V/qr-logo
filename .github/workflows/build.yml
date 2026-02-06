@@ -32,20 +32,21 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # --- TRUCO PARA EL ICONO ---
-      # Creamos la carpeta assets y metemos el icono ahí para que Android lo vea
+      # --- PASO OBLIGATORIO PARA QUE SE VEA EL LOGO ---
+      # Crea la carpeta assets y copia tu icono dentro antes de compilar
       - name: Prepare Assets
         run: |
           mkdir -p assets
           cp icon.png assets/icon.png
 
       - name: Build APK with Flet
-        # Usamos el comando estándar, el icono se tomará de la carpeta assets creada arriba
+        # Usamos "Qr Logo" para evitar errores de instalación.
+        # El título visual "Qr + Logo" ya está asegurado en tu main.py
         run: |
-          yes | flet build apk --verbose
+          yes | flet build apk --product-name "Qr Logo" --verbose
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: QR-Pro-App
+          name: Qr-Logo-Final
           path: build/apk/app-release.apk
