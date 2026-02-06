@@ -33,8 +33,9 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Build APK with Flet
+        # AQUI ESTA EL TRUCO: "yes |" responde "sí" automáticamente
         run: |
-          flet build apk --verbose
+          yes | flet build apk --verbose
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
