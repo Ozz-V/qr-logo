@@ -7,19 +7,17 @@ import os
 import ctypes
 
 # ============================================================================
-# 0. CONFIGURACIÓN SISTEMA (FORZAR ICONOS EN WINDOWS)
+# 0. CONFIGURACIÓN
 # ============================================================================
 try:
-    # Un ID único para que Windows sepa que esto no es "Python", sino "Tu App"
     myappid = 'comagro.qrlogo.app.v1'
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 except:
     pass
 
 # ============================================================================
-# 1. MOTOR GRÁFICO PRO (GEOMETRÍA CIRCULAR + LÓGICA COMPLETA)
+# 1. MOTOR GRÁFICO (NO TOCAR)
 # ============================================================================
-
 def hex_to_rgb(hex_col):
     try:
         h = hex_col.lstrip('#')
@@ -44,15 +42,6 @@ def crear_fondo(w, h, mode, c1, c2, direction):
                 r = x / w
                 col = tuple(int(c1[j] * (1 - r) + c2[j] * r) for j in range(3))
                 draw.line([(x, 0), (x, h)], fill=col)
-        elif direction == "Diagonal":
-            steps = w + h
-            for i in range(steps):
-                r = i / steps
-                col = tuple(int(c1[j] * (1 - r) + c2[j] * r) for j in range(3))
-                x0, y0 = 0, i; x1, y1 = i, 0
-                if y0 > h: x0 = y0 - h; y0 = h
-                if x1 > w: y1 = x1 - w; x1 = w
-                draw.line([(x0, y0), (x1, y1)], fill=col, width=2)
         return base.convert("RGBA")
     return Image.new("RGBA", (w, h), (255, 255, 255, 255))
 
@@ -78,9 +67,7 @@ def generar_qr_full_engine(params, data_string):
             logo_src = Image.open(logo_path).convert("RGBA")
             bbox = logo_src.getbbox()
             if bbox: logo_src = logo_src.crop(bbox)
-            w_orig, h_orig = logo_src.size
-            if w_orig > (h_orig * 1.4): logo_res = ImageOps.contain(logo_src, (int(size * 0.45), int(size * 0.20)))
-            else: logo_res = ImageOps.contain(logo_src, (int(size * 0.23), int(size * 0.23)))
+            logo_res = ImageOps.contain(logo_src, (int(size * 0.23), int(size * 0.23)))
             l_pos = ((size - logo_res.width) // 2, (size - logo_res.height) // 2)
         else:
             logo_res = Image.new("RGBA", (1,1), (0,0,0,0)); l_pos = (0,0)
@@ -100,13 +87,6 @@ def generar_qr_full_engine(params, data_string):
             return False
 
         def es_ojo_general(r, c): return (r<7 and c<7) or (r<7 and c>=modules-7) or (r>=modules-7 and c<7)
-        def es_ojo_externo(r, c):
-            if not es_ojo_general(r, c): return False
-            if r<7 and c<7: lr,lc=r,c
-            elif r<7 and c>=modules-7: lr,lc=r,c-(modules-7)
-            else: lr,lc=r-(modules-7),c
-            if 2<=lr<=4 and 2<=lc<=4: return False 
-            return True 
         def es_ojo_interno(r, c):
             if not es_ojo_general(r, c): return False
             if r<7 and c<7: lr,lc=r,c
@@ -118,48 +98,26 @@ def generar_qr_full_engine(params, data_string):
         mask_body = Image.new("L", (size, size), 0); draw_b = ImageDraw.Draw(mask_body)
         mask_ext = Image.new("L", (size, size), 0); draw_ext = ImageDraw.Draw(mask_ext)
         mask_int = Image.new("L", (size, size), 0); draw_int = ImageDraw.Draw(mask_int)
-        RAD_LIQUID = 18; PAD = 2
-
+        
         for r in range(modules):
             for c in range(modules):
                 x, y = c * 40, r * 40
-                
                 if es_ojo_general(r, c):
-                    if estilo == "Circular (Puntos)": 
-                        continue 
                     if matrix[r][c]:
                         if es_ojo_interno(r,c): draw_int.rectangle([x, y, x+40, y+40], fill=255)
                         else: draw_ext.rectangle([x, y, x+40, y+40], fill=255)
                     continue
 
-                if es_ojo_interno(r, c): draw = draw_int
-                elif es_ojo_externo(r, c): draw = draw_ext
-                else: draw = draw_b
-
-                if estilo == "Liquid Pro (Gusano)":
-                    if get_m(r, c):
-                        draw.rounded_rectangle([x+PAD, y+PAD, x+40-PAD, y+40-PAD], radius=RAD_LIQUID, fill=255)
-                        if get_m(r, c+1): draw.rounded_rectangle([x+PAD, y+PAD, x+80-PAD, y+40-PAD], radius=RAD_LIQUID, fill=255)
-                        if get_m(r+1, c): draw.rounded_rectangle([x+PAD, y+PAD, x+40-PAD, y+80-PAD], radius=RAD_LIQUID, fill=255)
-                        if get_m(r, c+1) and get_m(r+1, c) and get_m(r+1, c+1): draw.rectangle([x+20, y+20, x+60, y+60], fill=255)
-                elif estilo == "Normal (Cuadrado)":
-                    if get_m(r, c): draw.rectangle([x, y, x+40, y+40], fill=255)
-                elif estilo == "Barras (Vertical)":
-                    if get_m(r, c):
-                        if es_ojo_general(r,c): draw.rectangle([x, y, x+40, y+40], fill=255)
-                        else:
-                            draw.rounded_rectangle([x+4, y, x+36, y+40], radius=10, fill=255)
-                            if get_m(r+1, c) and not es_ojo_general(r+1, c): draw.rectangle([x+4, y+20, x+36, y+60], fill=255)
-                elif estilo == "Circular (Puntos)":
-                    if get_m(r, c): draw.ellipse([x+1, y+1, x+39, y+39], fill=255)
-
-        if estilo == "Circular (Puntos)":
-            def draw_geo_eye(r_start, c_start):
-                x = c_start * 40; y = r_start * 40; s = 7 * 40
-                draw_ext.ellipse([x, y, x+s, y+s], fill=255)
-                draw_ext.ellipse([x+40, y+40, x+s-40, y+s-40], fill=0)
-                draw_int.ellipse([x+80, y+80, x+s-80, y+s-80], fill=255)
-            draw_geo_eye(0, 0); draw_geo_eye(0, modules-7); draw_geo_eye(modules-7, 0)
+                draw = draw_b
+                if get_m(r, c):
+                    if estilo == "Liquid Pro (Gusano)":
+                        draw.rounded_rectangle([x+2, y+2, x+38, y+38], radius=18, fill=255)
+                        if get_m(r, c+1): draw.rectangle([x+20, y+2, x+60, y+38], fill=255)
+                        if get_m(r+1, c): draw.rectangle([x+2, y+20, x+38, y+60], fill=255)
+                    elif estilo == "Circular (Puntos)":
+                        draw.ellipse([x+1, y+1, x+39, y+39], fill=255)
+                    else:
+                        draw.rectangle([x, y, x+40, y+40], fill=255)
 
         img_body_color = Image.new("RGBA", (size, size), (0,0,0,0)); draw_grad = ImageDraw.Draw(img_body_color)
         color_final_1 = qr_body_c1; color_final_2 = qr_body_c2
@@ -173,8 +131,7 @@ def generar_qr_full_engine(params, data_string):
             for i in range(size):
                 r = i/size; col = tuple(int(color_final_1[j]*(1-r) + color_final_2[j]*r) for j in range(3)) + (255,)
                 if grad_dir_qr == "Vertical": draw_grad.line([(0,i),(size,i)], fill=col)
-                elif grad_dir_qr == "Horizontal": draw_grad.line([(i,0),(i,size)], fill=col)
-                elif grad_dir_qr == "Diagonal": draw_grad.line([(i,0),(i,size)], fill=col) 
+                else: draw_grad.line([(i,0),(i,size)], fill=col)
 
         if usar_ojos: img_ext_color = Image.new("RGBA", (size, size), eye_ext + (255,)); img_int_color = Image.new("RGBA", (size, size), eye_int + (255,))
         else: img_ext_color = img_body_color; img_int_color = img_body_color
@@ -199,44 +156,46 @@ def generar_qr_full_engine(params, data_string):
         return None, None
 
 # ============================================================================
-# 2. INTERFAZ MÓVIL V95 (ICONO RELATIVO + ESTÉTICA PLATINUM)
+# 2. INTERFAZ MÓVIL CORREGIDA
 # ============================================================================
 
 def main(page: ft.Page):
-    page.title = "QR + Logo"
+    # TITULO Y CONFIGURACIÓN
+    page.title = "Generador QR Pro"
     page.theme_mode = ft.ThemeMode.DARK
     page.bgcolor = "#111111"
     page.padding = 20
-    page.window_width = 400
-    page.window_height = 800
+    page.scroll = "AUTO"  # Habilitar scroll en la página entera para seguridad
     
-    # IMPORTANTE: Icono de la ventana (relativo a assets_dir)
-    page.window_icon = "app_icon.png"
+    # IMPORTANTE: Ahora usamos "icon.png" porque lo renombraste
+    page.window_icon = "icon.png"
 
-    # DATOS
-    COUNTRY_CODES = ["🇵🇾 +595", "🇦🇷 +54", "🇧🇷 +55", "🇺🇸 +1", "🇪🇸 +34", "🇲🇽 +52"]
-
-    # ESTADO
+    # --- ESTADO ---
     qr_bytes_data = None
-    logo_path = ft.Text(value="", visible=False)
+    logo_path_ref = ft.Ref[str]() # Usamos Ref para evitar errores de control
+    
+    # --- VARIABLES DE COLOR ---
     hex_c1 = ft.Text(value="#000000", visible=False); hex_c2 = ft.Text(value="#3399ff", visible=False)
     hex_eye_ext = ft.Text(value="#000000", visible=False); hex_eye_in = ft.Text(value="#000000", visible=False)
     hex_bg1 = ft.Text(value="#FFFFFF", visible=False); hex_bg2 = ft.Text(value="#EEEEEE", visible=False)
     current_target = "c1"
 
-    # LOADING
-    img_load = ft.Image(src="app_icon.png", width=80, height=80, fit="contain")
+    # --- LOADING ---
     pr_ring = ft.ProgressRing(width=30, height=30, color="green")
-    dlg_loading = ft.AlertDialog(modal=True, title=ft.Text("Generando...", text_align="center"), content=ft.Container(content=ft.Column([img_load, ft.Container(height=10), pr_ring], alignment="center", horizontal_alignment="center", height=150), padding=10))
+    dlg_loading = ft.AlertDialog(modal=True, title=ft.Text("Procesando..."), content=ft.Container(content=pr_ring, alignment=ft.alignment.center, height=100))
 
-    # FILE PICKERS
-    picker_logo = ft.FilePicker(); picker_save = ft.FilePicker()
-    page.overlay.extend([picker_logo, picker_save])
+    # --- FILE PICKERS (SOLUCIÓN ERROR ROJO) ---
+    # Los definimos aquí y los agregamos al overlay INMEDIATAMENTE
+    picker_logo = ft.FilePicker()
+    picker_save = ft.FilePicker()
+    page.overlay.append(picker_logo)
+    page.overlay.append(picker_save)
 
+    # --- EVENTOS ---
     def on_logo_picked(e: ft.FilePickerResultEvent):
         if e.files:
-            logo_path.value = e.files[0].path
-            btn_logo_select.text = f"Logo: {e.files[0].name}"
+            logo_path_ref.current = e.files[0].path
+            btn_logo_select.text = f"Logo cargado: {e.files[0].name}"
             btn_logo_select.bgcolor = "green"
             page.update()
 
@@ -245,14 +204,14 @@ def main(page: ft.Page):
             try:
                 with open(e.path, "wb") as f:
                     f.write(qr_bytes_data)
-                page.snack_bar = ft.SnackBar(ft.Text("¡Guardado!"))
-                page.snack_bar.open = True
-                page.update()
-            except: pass
+                page.show_snack_bar(ft.SnackBar(ft.Text("¡Imagen Guardada!"), open=True))
+            except Exception as ex:
+                print(ex)
 
-    picker_logo.on_result = on_logo_picked; picker_save.on_result = on_save_file
+    picker_logo.on_result = on_logo_picked
+    picker_save.on_result = on_save_file
 
-    # COLOR PICKER
+    # --- COLOR PICKER ---
     colores_hex = ["#000000", "#FFFFFF", "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#333333", "#FFA500", "#800080"]
     def sel_col(e):
         c = e.control.bgcolor
@@ -269,138 +228,108 @@ def main(page: ft.Page):
     dlg_color = ft.AlertDialog(title=ft.Text("Color"), content=ft.Container(content=grid, height=150))
     def open_col(target): nonlocal current_target; current_target = target; page.open(dlg_color)
 
-    # UI HEADER
-    header = ft.Container(content=ft.Row([ft.Image(src="app_icon.png", width=40, height=40), ft.Text("QR + Logo", size=22, weight="bold")], alignment="center"), padding=15, bgcolor="#1a1a1a")
+    # --- CONTROLES UI ---
+    # Header con el nuevo icono
+    header = ft.Container(content=ft.Row([ft.Image(src="icon.png", width=40, height=40), ft.Text("QR Creator", size=22, weight="bold")], alignment="center"), padding=15, bgcolor="#1a1a1a", border_radius=10)
 
-    # 1. CONTENIDO
-    dd_tipo = ft.Dropdown(label="Tipo QR", options=[ft.dropdown.Option("Sitio Web (URL)"), ft.dropdown.Option("Red WiFi"), ft.dropdown.Option("WhatsApp"), ft.dropdown.Option("Teléfono"), ft.dropdown.Option("E-mail"), ft.dropdown.Option("VCard (Contacto)"), ft.dropdown.Option("SMS (Mensaje)"), ft.dropdown.Option("Texto Libre")], value="Sitio Web (URL)", bgcolor="#222222")
-    txt_1 = ft.TextField(bgcolor="#222222"); txt_2 = ft.TextField(bgcolor="#222222", visible=False)
-    txt_3 = ft.TextField(bgcolor="#222222", visible=False); txt_4 = ft.TextField(bgcolor="#222222", visible=False)
-    txt_5 = ft.TextField(bgcolor="#222222", visible=False); txt_msg = ft.TextField(label="Mensaje", multiline=True, visible=False, bgcolor="#222222")
-    dd_pais = ft.Dropdown(options=[ft.dropdown.Option(c) for c in COUNTRY_CODES], value="🇵🇾 +595", width=160, visible=False, bgcolor="#222222")
-    row_phone_container = ft.Row([dd_pais, txt_1], alignment="start")
-
+    # Inputs
+    dd_tipo = ft.Dropdown(label="Tipo QR", options=[ft.dropdown.Option("Sitio Web (URL)"), ft.dropdown.Option("Texto Libre"), ft.dropdown.Option("WhatsApp"), ft.dropdown.Option("WiFi")], value="Sitio Web (URL)", bgcolor="#222222")
+    txt_1 = ft.TextField(bgcolor="#222222", label="Enlace / Texto"); txt_msg = ft.TextField(bgcolor="#222222", label="Mensaje", visible=False, multiline=True)
+    
     def update_inputs(e):
-        t = dd_tipo.value
-        txt_1.visible=False; txt_1.password=False; txt_1.expand=True; txt_2.visible=False; txt_2.password=False
-        txt_3.visible=False; txt_4.visible=False; txt_5.visible=False; txt_msg.visible=False; dd_pais.visible=False 
-        if t == "Sitio Web (URL)": txt_1.label="Enlace"; txt_1.visible=True
-        elif t == "Red WiFi": txt_1.label="SSID"; txt_1.visible=True; txt_1.expand=False; txt_2.label="Pass"; txt_2.visible=True; txt_2.password=True
-        elif t == "Texto Libre": txt_msg.label="Texto"; txt_msg.visible=True
-        elif t == "VCard (Contacto)": txt_1.label="Nombre"; txt_1.visible=True; txt_1.expand=False; txt_2.label="Apellido"; txt_2.visible=True; txt_3.label="Org"; txt_3.visible=True; txt_4.label="Tel"; txt_4.visible=True; txt_5.label="Email"; txt_5.visible=True
-        elif t == "Teléfono": dd_pais.visible=True; txt_1.label="Num"; txt_1.visible=True
-        elif t == "WhatsApp": dd_pais.visible=True; txt_1.label="Num"; txt_1.visible=True; txt_msg.label="Msj"; txt_msg.visible=True
-        elif t == "SMS (Mensaje)": dd_pais.visible=True; txt_1.label="Num"; txt_1.visible=True; txt_msg.label="Txt"; txt_msg.visible=True
-        elif t == "E-mail": txt_1.label="Email"; txt_1.visible=True; txt_1.expand=False; txt_2.label="Asunto"; txt_2.visible=True; txt_msg.label="Cuerpo"; txt_msg.visible=True
+        val = dd_tipo.value
+        txt_msg.visible = (val == "WhatsApp")
+        if val == "Sitio Web (URL)": txt_1.label = "URL (https://...)"
+        elif val == "WhatsApp": txt_1.label = "Número (con código país)"
+        elif val == "WiFi": txt_1.label = "Nombre de la Red (SSID)"
+        elif val == "Texto Libre": txt_1.label = "Escribe tu texto"
         page.update()
     dd_tipo.on_change = update_inputs
 
-    # 2. CUERPO
-    dd_estilo = ft.Dropdown(label="Estilo", options=[ft.dropdown.Option("Liquid Pro (Gusano)"), ft.dropdown.Option("Normal (Cuadrado)"), ft.dropdown.Option("Barras (Vertical)"), ft.dropdown.Option("Circular (Puntos)")], value="Liquid Pro (Gusano)", bgcolor="#222222")
-    dd_modo = ft.Dropdown(label="Modo Color", options=[ft.dropdown.Option("Automático (Logo)"), ft.dropdown.Option("Sólido (Un Color)"), ft.dropdown.Option("Degradado Custom")], value="Automático (Logo)", bgcolor="#222222")
-    dd_dir = ft.Dropdown(label="Dirección", options=[ft.dropdown.Option("Vertical"), ft.dropdown.Option("Horizontal")], value="Vertical", bgcolor="#222222")
+    # Estilos
+    dd_estilo = ft.Dropdown(label="Estilo", options=[ft.dropdown.Option("Liquid Pro (Gusano)"), ft.dropdown.Option("Normal (Cuadrado)"), ft.dropdown.Option("Circular (Puntos)")], value="Liquid Pro (Gusano)", bgcolor="#222222")
+    dd_modo = ft.Dropdown(label="Color", options=[ft.dropdown.Option("Automático (Logo)"), ft.dropdown.Option("Sólido (Un Color)"), ft.dropdown.Option("Degradado Custom")], value="Automático (Logo)", bgcolor="#222222")
+    
+    # Botones Color
     btn_c1 = ft.Container(width=40, height=40, bgcolor="#000000", border_radius=20, border=ft.border.all(1,"white"), on_click=lambda _: open_col("c1"))
     btn_c2 = ft.Container(width=40, height=40, bgcolor="#3399ff", border_radius=20, border=ft.border.all(1,"white"), on_click=lambda _: open_col("c2"))
-    row_body_colors = ft.Row([ft.Column([ft.Text("C1"), btn_c1], horizontal_alignment="center"), ft.Column([ft.Text("C2"), btn_c2], horizontal_alignment="center")], alignment="spaceEvenly")
+    row_colors = ft.Row([btn_c1, btn_c2], visible=False, alignment="center")
 
-    def upd_body(e):
-        m = dd_modo.value
-        if m == "Automático (Logo)": row_body_colors.visible=False; dd_dir.visible=False
-        elif m == "Sólido (Un Color)": row_body_colors.visible=True; row_body_colors.controls[1].visible=False; dd_dir.visible=False
-        elif m == "Degradado Custom": row_body_colors.visible=True; row_body_colors.controls[1].visible=True; dd_dir.visible=True
-        page.update()
-    dd_modo.on_change = upd_body
+    def upd_modo(e): row_colors.visible = (dd_modo.value != "Automático (Logo)"); page.update()
+    dd_modo.on_change = upd_modo
 
-    # 3. OJOS
+    # Ojos y Fondo
     sw_ojos = ft.Switch(label="Personalizar Ojos", value=False)
     btn_e1 = ft.Container(width=40, height=40, bgcolor="#000000", border_radius=20, border=ft.border.all(1,"white"), on_click=lambda _: open_col("e1"))
     btn_e2 = ft.Container(width=40, height=40, bgcolor="#000000", border_radius=20, border=ft.border.all(1,"white"), on_click=lambda _: open_col("e2"))
-    row_ojos = ft.Row([ft.Column([ft.Text("Borde"), btn_e1], horizontal_alignment="center"), ft.Column([ft.Text("Centro"), btn_e2], horizontal_alignment="center")], alignment="spaceEvenly", visible=False)
+    row_ojos = ft.Row([btn_e1, btn_e2], visible=False, alignment="center")
     def upd_ojos(e): row_ojos.visible = sw_ojos.value; page.update()
     sw_ojos.on_change = upd_ojos
 
-    # 4. FONDO
-    dd_bg_mode = ft.Dropdown(label="Fondo", options=[ft.dropdown.Option("Blanco (Default)"), ft.dropdown.Option("Transparente"), ft.dropdown.Option("Sólido (Color)"), ft.dropdown.Option("Degradado")], value="Blanco (Default)", bgcolor="#222222")
-    dd_bg_dir = ft.Dropdown(label="Dir Fondo", options=[ft.dropdown.Option("Vertical"), ft.dropdown.Option("Horizontal")], value="Vertical", visible=False, bgcolor="#222222")
+    dd_bg = ft.Dropdown(label="Fondo", options=[ft.dropdown.Option("Blanco (Default)"), ft.dropdown.Option("Transparente"), ft.dropdown.Option("Sólido (Color)")], value="Blanco (Default)", bgcolor="#222222")
     btn_b1 = ft.Container(width=40, height=40, bgcolor="#FFFFFF", border_radius=20, border=ft.border.all(1,"white"), on_click=lambda _: open_col("b1"))
     btn_b2 = ft.Container(width=40, height=40, bgcolor="#EEEEEE", border_radius=20, border=ft.border.all(1,"white"), on_click=lambda _: open_col("b2"))
-    row_bg_colors = ft.Row([ft.Column([ft.Text("F1"), btn_b1], horizontal_alignment="center"), ft.Column([ft.Text("F2"), btn_b2], horizontal_alignment="center")], alignment="spaceEvenly", visible=False)
-    def upd_bg(e):
-        m = dd_bg_mode.value
-        if m in ["Blanco (Default)", "Transparente"]: row_bg_colors.visible=False; dd_bg_dir.visible=False
-        elif m == "Sólido (Color)": row_bg_colors.visible=True; row_bg_colors.controls[1].visible=False; dd_bg_dir.visible=False
-        elif m == "Degradado": row_bg_colors.visible=True; row_bg_colors.controls[1].visible=True; dd_bg_dir.visible=True
-        page.update()
-    dd_bg_mode.on_change = upd_bg
+    row_bg = ft.Row([btn_b1, btn_b2], visible=False, alignment="center")
+    def upd_bg(e): row_bg.visible = (dd_bg.value != "Blanco (Default)" and dd_bg.value != "Transparente"); page.update()
+    dd_bg.on_change = upd_bg
 
-    # 5. LOGO
-    btn_logo_select = ft.ElevatedButton("Seleccionar Logo...", icon=ft.icons.IMAGE, bgcolor="#333333", color="white", width=float("inf"), height=45, on_click=lambda _: picker_logo.pick_files(allow_multiple=False))
-    
-    img_res = ft.Image(src="", width=280, height=280, fit="contain", visible=False, border_radius=10)
-    
-    def save_click(e): picker_save.save_file(file_name="qr.png")
-    btn_save = ft.ElevatedButton("Guardar Imagen", icon=ft.icons.SAVE, disabled=True, width=float("inf"), height=45, on_click=save_click, bgcolor="blue", color="white")
+    # Botones Acción
+    btn_logo_select = ft.ElevatedButton("Subir Logo (Opcional)", icon=ft.icons.IMAGE, on_click=lambda _: picker_logo.pick_files(), bgcolor="#333333", color="white")
+    img_res = ft.Image(src="", width=250, height=250, fit="contain", visible=False, border_radius=10)
+    btn_save = ft.ElevatedButton("Descargar PNG", icon=ft.icons.DOWNLOAD, on_click=lambda _: picker_save.save_file(file_name="mi_qr.png"), disabled=True, bgcolor="blue", color="white")
 
     def generar(e):
-        d = ""
-        t = dd_tipo.value
-        if t == "Sitio Web (URL)": d = txt_1.value
-        elif t == "Texto Libre": d = txt_msg.value
-        elif t == "Red WiFi": d = f"WIFI:T:WPA;S:{txt_1.value};P:{txt_2.value};;"
-        elif t == "VCard (Contacto)": d = f"BEGIN:VCARD\nVERSION:3.0\nN:{txt_2.value};{txt_1.value}\nFN:{txt_1.value} {txt_2.value}\nORG:{txt_3.value}\nTEL:{txt_4.value}\nEMAIL:{txt_5.value}\nEND:VCARD"
-        elif t == "Teléfono": c = dd_pais.value.split(' ')[1]; d = f"tel:{c}{txt_1.value}"
-        elif t == "E-mail": d = f"mailto:{txt_1.value}?subject={txt_2.value}&body={txt_msg.value}"
-        elif t == "SMS (Mensaje)": c = dd_pais.value.split(' ')[1]; d = f"SMSTO:{c}{txt_1.value}:{txt_msg.value}"
-        elif t == "WhatsApp": c = dd_pais.value.split(' ')[1].replace("+",""); d = f"https://wa.me/{c}{txt_1.value}?text={txt_msg.value}"
-
-        if not d and t != "VCard (Contacto)": 
-            if not txt_1.value: page.open(ft.SnackBar(ft.Text("Faltan datos"))); return
+        if not txt_1.value:
+            page.show_snack_bar(ft.SnackBar(ft.Text("¡Escribe algo primero!"), open=True))
+            return
 
         page.open(dlg_loading); page.update()
-
+        
+        # Preparar datos
+        data = txt_1.value
+        if dd_tipo.value == "WhatsApp": data = f"https://wa.me/{txt_1.value.replace('+','')}?text={txt_msg.value}"
+        elif dd_tipo.value == "WiFi": data = f"WIFI:S:{txt_1.value};;"
+        
         params = {
-            'logo_path': logo_path.value, 'estilo': dd_estilo.value,
+            'logo_path': logo_path_ref.current, 'estilo': dd_estilo.value,
             'modo_color_qr': dd_modo.value, 'c1': hex_c1.value, 'c2': hex_c2.value,
-            'grad_dir_qr': dd_dir.value,
+            'grad_dir_qr': "Vertical",
             'usar_ojos': sw_ojos.value, 'eye_ext': hex_eye_ext.value, 'eye_int': hex_eye_in.value,
-            'modo_fondo': dd_bg_mode.value, 'bg_c1': hex_bg1.value, 'bg_c2': hex_bg2.value, 'grad_dir_bg': dd_bg_dir.value
+            'modo_fondo': dd_bg.value, 'bg_c1': hex_bg1.value, 'bg_c2': hex_bg2.value, 'grad_dir_bg': "Vertical"
         }
-        
-        b64, binary = generar_qr_full_engine(params, d)
-        
+
+        b64, binary = generar_qr_full_engine(params, data)
         page.close(dlg_loading)
-        
+
         if b64:
             nonlocal qr_bytes_data; qr_bytes_data = binary
-            img_res.src_base64 = b64; img_res.visible = True; btn_save.disabled = False
-        
-        page.update()
+            img_res.src_base64 = b64; img_res.visible = True
+            btn_save.disabled = False
+            page.update()
 
-    btn_gen = ft.ElevatedButton("GENERAR QR", on_click=generar, width=float("inf"), height=50, bgcolor="green", color="white")
+    btn_gen = ft.ElevatedButton("CREAR QR AHORA", on_click=generar, height=50, bgcolor="green", color="white")
 
-    # MAIN COLUMN
-    main_column = ft.Column(
-        scroll=ft.ScrollMode.AUTO, 
-        expand=True, 
-        spacing=15,
-        controls=[
-            header,
-            ft.Text("1. Contenido", weight="bold", color="green"), dd_tipo, row_phone_container, txt_2, txt_3, txt_4, txt_5, txt_msg,
-            ft.Divider(),
-            ft.Text("2. Cuerpo", weight="bold", color="blue"), dd_estilo, dd_modo, dd_dir, row_body_colors,
-            ft.Divider(),
-            ft.Text("3. Ojos", weight="bold", color="blue"), sw_ojos, row_ojos,
-            ft.Divider(),
-            ft.Text("4. Fondo", weight="bold", color="blue"), dd_bg_mode, dd_bg_dir, row_bg_colors,
-            ft.Divider(),
-            ft.Text("5. Logo", weight="bold", color="orange"), btn_logo_select,
-            ft.Divider(height=20, color="transparent"), btn_gen, ft.Container(content=img_res, alignment=ft.alignment.center), btn_save
-        ]
+    # --- ARMADO DE PÁGINA ---
+    # Usamos un ListView para evitar problemas de desbordamiento en pantallas pequeñas
+    page.add(
+        ft.ListView(
+            expand=True,
+            spacing=20,
+            controls=[
+                header,
+                ft.Text("DATOS", color="green", weight="bold"), dd_tipo, txt_1, txt_msg,
+                ft.Divider(),
+                ft.Text("DISEÑO", color="blue", weight="bold"), dd_estilo, dd_modo, row_colors,
+                sw_ojos, row_ojos,
+                dd_bg, row_bg,
+                ft.Divider(),
+                btn_logo_select,
+                ft.Divider(),
+                btn_gen,
+                ft.Container(content=img_res, alignment=ft.alignment.center, padding=10),
+                btn_save
+            ]
+        )
     )
-    
-    page.add(main_column)
-    update_inputs(None); upd_body(None); upd_ojos(None); upd_bg(None)
 
-if __name__ == "__main__":
-    # ASSETS_DIR="." -> Le dice a Flet que busque los archivos en LA MISMA CARPETA
-    ft.app(target=main, assets_dir=".")
+ft.app(target=main, assets_dir=".")
