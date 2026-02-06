@@ -33,13 +33,12 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Build APK with Flet
-        # AQUI ESTA EL CAMBIO:
-        # Puse "QR + Logo" entre comillas. Así saldrá en tu celular.
+        # Volvemos al comando simple que SABEMOS que funciona
         run: |
-          yes | flet build apk --product-name "QR + Logo" --verbose
+          yes | flet build apk --verbose
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: QR-Plus-Logo-v1.0  # El nombre del ZIP (mejor sin símbolos)
+          name: QR-Plus-Logo-v1.0
           path: build/apk/app-release.apk
