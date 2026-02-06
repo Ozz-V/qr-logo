@@ -33,7 +33,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Build APK with Flet
-        # AQUI ESTA EL TRUCO: "yes |" responde "sí" automáticamente
+        # El "yes |" sigue ahí para responder "sí" automáticamente
         run: |
           yes | flet build apk --verbose
 
@@ -41,4 +41,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          # AQUI ESTA EL CAMBIO: La ruta correcta ahora es esta:
+          path: build/apk/app-release.apk
