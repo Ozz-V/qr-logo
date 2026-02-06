@@ -38,12 +38,12 @@ jobs:
           cp icon.png assets/icon.png
 
       - name: Build APK with Flet
-        # SIN el argumento --product-name que da error
+        # SIN EL COMANDO --product-name QUE DABA ERROR
         run: |
           yes | flet build apk --verbose
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: QR-Logo-Full
+          name: QR-Logo-App-Works
           path: build/apk/app-release.apk
