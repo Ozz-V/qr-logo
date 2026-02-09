@@ -1,8 +1,8 @@
 name: Build Android APK
-
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -10,50 +10,55 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
+      # 1. Preparamos Python
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
+      # 2. INSTALAMOS FLUTTER MANUALMENTE (ESTO ARREGLA EL ERROR EOF)
+      # Al instalarlo aquí, Flet ya no preguntará nada después.
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.22.0'
+          cache: true
 
+      # 3. Instalamos librerías (Asegúrate que requirements.txt tenga Pillow==10.0.0)
       - name: Install Dependencies
         run: |
           pip install flet
           pip install -r requirements.txt
 
+      # 4. Preparamos Java para Android
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
 
+      # 5. Preparamos el SDK de Android
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.19.6'
-          channel: stable
-          cache: true
-
-      - name: Flutter doctor
-        run: flutter doctor -v
-
-      - name: Prepare assets
+      # 6. Preparamos el Icono (Carpeta assets)
+      - name: Prepare Assets
         run: |
           mkdir -p assets
           cp icon.png assets/icon.png
 
-      - name: Build APK
-        run: flet build apk --verbose
+      # 7. Compilamos (SIN "yes |" porque ya no hace falta)
+      - name: Build APK with Flet
+        run: |
+          flet build apk --verbose
 
+      # 8. Subimos el resultado
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: qr-logo-apk
+          name: QR-Logo-Final-App
           path: build/apk/app-release.apk
