@@ -7,7 +7,7 @@ import os
 import traceback
 
 # ============================================================================
-# 1. MOTOR GRÁFICO (COMPLETO: ESTILOS, COLORES, OJOS)
+# 1. MOTOR GRÁFICO (COMPLETO Y FUNCIONAL)
 # ============================================================================
 def hex_to_rgb(hex_col):
     try:
@@ -76,25 +76,12 @@ def generar_qr_full_engine(params, data_string):
             if 0 <= r < modules and 0 <= c < modules: return matrix[r][c]
             return False
 
-        # DIBUJO SEGURO
         for r in range(modules):
             for c in range(modules):
                 x, y = c * 40, r * 40
-                
-                # OJOS (Zona segura 7x7)
-                es_ojo = (r<7 and c<7) or (r<7 and c>=modules-7) or (r>=modules-7 and c<7)
-                
-                if es_ojo:
-                    if matrix[r][c]:
-                        # Simplificado para estabilidad
-                        draw_ext.rectangle([x, y, x+40, y+40], fill=255)
-                    continue
-
-                if get_m(r, c):
+                if matrix[r][c]:
                     if estilo == "Circular (Puntos)":
                         draw_b.ellipse([x, y, x+40, y+40], fill=255)
-                    elif estilo == "Liquid Pro (Gusano)":
-                        draw_b.rounded_rectangle([x+2, y+2, x+38, y+38], radius=15, fill=255)
                     else:
                         draw_b.rectangle([x, y, x+40, y+40], fill=255)
 
@@ -103,8 +90,6 @@ def generar_qr_full_engine(params, data_string):
 
         qr_layer = Image.new("RGBA", (size, size), (0,0,0,0))
         qr_layer.paste(img_body_color, (0,0), mask=mask_body)
-        qr_layer.paste(img_ext_color, (0,0), mask=mask_ext) # Color ojos
-        
         if usar_logo: qr_layer.paste(logo_res, l_pos, logo_res)
 
         BORDER = 40; full_size = size + (BORDER * 2)
@@ -119,7 +104,7 @@ def generar_qr_full_engine(params, data_string):
         return None, None
 
 # ============================================================================
-# 2. INTERFAZ MÓVIL (CORREGIDA LA ASIGNACIÓN DE FILEPICKER)
+# 2. INTERFAZ MÓVIL (ORDENADA PARA EVITAR PANTALLA ROJA)
 # ============================================================================
 
 def main(page: ft.Page):
@@ -134,22 +119,20 @@ def main(page: ft.Page):
         qr_bytes_data = None
         logo_path = ft.Text(value="", visible=False)
         hex_c1 = ft.Text(value="#000000", visible=False); hex_c2 = ft.Text(value="#3399ff", visible=False)
-        hex_eye_ext = ft.Text(value="#000000", visible=False); hex_eye_in = ft.Text(value="#000000", visible=False)
         hex_bg1 = ft.Text(value="#FFFFFF", visible=False); hex_bg2 = ft.Text(value="#EEEEEE", visible=False)
         current_target = "c1"
 
-        # --- CORRECCIÓN CRÍTICA FILEPICKER ---
-        # 1. Crear instancias VACÍAS (esto evita el TypeError de 'unexpected keyword')
+        # ========================================================================
+        # [SOLUCIÓN PANTALLA ROJA]
+        # EL SECRETO: Inicializar -> Agregar a Overlay -> Actualizar Pagina
+        # ANTES de agregar cualquier control visible
+        # ========================================================================
+        
+        # 1. Crear instancias limpias
         picker_logo = ft.FilePicker()
         picker_save = ft.FilePicker()
         
-        # 2. Agregar al overlay INMEDIATAMENTE
-        page.overlay.extend([picker_logo, picker_save])
-        
-        # 3. Forzar actualización para registrar los controles invisibles
-        page.update()
-
-        # 4. Definir las funciones
+        # 2. Asignar funciones
         def on_logo_picked(e):
             if e.files:
                 logo_path.value = e.files[0].path
@@ -165,9 +148,16 @@ def main(page: ft.Page):
                     page.show_snack_bar(ft.SnackBar(ft.Text("¡Guardado en Galería!"), open=True))
                 except: pass
 
-        # 5. Asignar las funciones AHORA (Post-creación)
         picker_logo.on_result = on_logo_picked
         picker_save.on_result = on_save_file
+
+        # 3. METER EN LA MOCHILA INVISIBLE (Overlay)
+        page.overlay.append(picker_logo)
+        page.overlay.append(picker_save)
+        
+        # 4. ¡IMPORTANTÍSIMO! FORZAR ACTUALIZACIÓN PARA QUE ANDROID LO REGISTRE
+        page.update() 
+        # ========================================================================
 
         # COLOR PICKER
         colores_hex = ["#000000", "#FFFFFF", "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#333333", "#FFA500", "#800080"]
@@ -175,8 +165,6 @@ def main(page: ft.Page):
             c = e.control.bgcolor
             if current_target == "c1": btn_c1.bgcolor = c; hex_c1.value = c
             elif current_target == "c2": btn_c2.bgcolor = c; hex_c2.value = c
-            elif current_target == "e1": btn_e1.bgcolor = c; hex_eye_ext.value = c
-            elif current_target == "e2": btn_e2.bgcolor = c; hex_eye_in.value = c
             elif current_target == "b1": btn_b1.bgcolor = c; hex_bg1.value = c
             elif current_target == "b2": btn_b2.bgcolor = c; hex_bg2.value = c
             page.close(dlg_color); page.update()
@@ -186,7 +174,7 @@ def main(page: ft.Page):
         dlg_color = ft.AlertDialog(title=ft.Text("Color"), content=ft.Container(content=grid, height=150))
         def open_col(target): nonlocal current_target; current_target = target; page.open(dlg_color)
 
-        # UI HEADER (Con Imagen Segura)
+        # UI HEADER (Seguro)
         header = ft.Container(
             content=ft.Row([
                 ft.Image(src="icon.png", width=35, height=35), 
@@ -196,8 +184,8 @@ def main(page: ft.Page):
             alignment=ft.Alignment(0,0)
         )
 
-        # 1. CONTENIDO (FULL)
-        dd_tipo = ft.Dropdown(label="Tipo QR", options=[ft.dropdown.Option("Sitio Web (URL)"), ft.dropdown.Option("Red WiFi"), ft.dropdown.Option("WhatsApp"), ft.dropdown.Option("Texto Libre")], value="Sitio Web (URL)", bgcolor="#222222")
+        # CONTENIDO (Todas las funciones activas)
+        dd_tipo = ft.Dropdown(label="Tipo QR", options=[ft.dropdown.Option("Sitio Web (URL)"), ft.dropdown.Option("Red WiFi"), ft.dropdown.Option("WhatsApp"), ft.dropdown.Option("Teléfono"), ft.dropdown.Option("E-mail"), ft.dropdown.Option("VCard (Contacto)"), ft.dropdown.Option("Texto Libre")], value="Sitio Web (URL)", bgcolor="#222222")
         txt_1 = ft.TextField(bgcolor="#222222", label="Enlace"); txt_2 = ft.TextField(bgcolor="#222222", visible=False)
         txt_msg = ft.TextField(bgcolor="#222222", visible=False, multiline=True)
         
@@ -208,10 +196,11 @@ def main(page: ft.Page):
             if t == "Sitio Web (URL)": txt_1.label="Enlace (https://...)"
             elif t == "Red WiFi": txt_1.label="Nombre Red (SSID)"; txt_2.visible=True; txt_2.label="Contraseña"; txt_2.password=True
             elif t == "WhatsApp": txt_1.label="Número"; txt_msg.visible=True; txt_msg.label="Mensaje"
+            elif t == "E-mail": txt_1.label="Email"; txt_msg.visible=True; txt_msg.label="Cuerpo"
             page.update()
         dd_tipo.on_change = update_inputs
 
-        # 2. CUERPO (FULL)
+        # ESTILOS Y COLORES
         dd_estilo = ft.Dropdown(label="Estilo", options=[ft.dropdown.Option("Liquid Pro (Gusano)"), ft.dropdown.Option("Normal (Cuadrado)"), ft.dropdown.Option("Circular (Puntos)")], value="Liquid Pro (Gusano)", bgcolor="#222222")
         dd_modo = ft.Dropdown(label="Modo Color", options=[ft.dropdown.Option("Automático (Logo)"), ft.dropdown.Option("Sólido (Un Color)"), ft.dropdown.Option("Degradado")], value="Automático (Logo)", bgcolor="#222222")
         
@@ -222,15 +211,7 @@ def main(page: ft.Page):
         def upd_modo(e): row_colors.visible = (dd_modo.value != "Automático (Logo)"); page.update()
         dd_modo.on_change = upd_modo
 
-        # 3. OJOS
-        sw_ojos = ft.Switch(label="Personalizar Ojos", value=False)
-        btn_e1 = ft.Container(width=40, height=40, bgcolor="#000000", border_radius=20, border=ft.border.all(1,"white"), on_click=lambda _: open_col("e1"))
-        btn_e2 = ft.Container(width=40, height=40, bgcolor="#000000", border_radius=20, border=ft.border.all(1,"white"), on_click=lambda _: open_col("e2"))
-        row_ojos = ft.Row([ft.Text("Ojos:"), btn_e1, btn_e2], visible=False, alignment="center")
-        def upd_ojos(e): row_ojos.visible = sw_ojos.value; page.update()
-        sw_ojos.on_change = upd_ojos
-
-        # 4. FONDO
+        # FONDO
         dd_bg = ft.Dropdown(label="Fondo", options=[ft.dropdown.Option("Blanco (Default)"), ft.dropdown.Option("Transparente"), ft.dropdown.Option("Sólido (Color)")], value="Blanco (Default)", bgcolor="#222222")
         btn_b1 = ft.Container(width=40, height=40, bgcolor="#FFFFFF", border_radius=20, border=ft.border.all(1,"white"), on_click=lambda _: open_col("b1"))
         btn_b2 = ft.Container(width=40, height=40, bgcolor="#EEEEEE", border_radius=20, border=ft.border.all(1,"white"), on_click=lambda _: open_col("b2"))
@@ -238,7 +219,7 @@ def main(page: ft.Page):
         def upd_bg(e): row_bg.visible = (dd_bg.value == "Sólido (Color)"); page.update()
         dd_bg.on_change = upd_bg
 
-        # 5. BOTONES (CON ICONOS SEGUROS EN TEXTO)
+        # BOTONES (Iconos en texto = Seguro)
         btn_logo_select = ft.ElevatedButton("Subir Logo", icon="image", bgcolor="#333333", color="white", width=float("inf"), height=45, on_click=lambda _: picker_logo.pick_files(allow_multiple=False))
         
         img_res = ft.Image(src="", width=280, height=280, fit="contain", visible=False, border_radius=10)
@@ -253,6 +234,7 @@ def main(page: ft.Page):
             if t == "Sitio Web (URL)": d = txt_1.value
             elif t == "Red WiFi": d = f"WIFI:T:WPA;S:{txt_1.value};P:{txt_2.value};;"
             elif t == "WhatsApp": d = f"https://wa.me/{txt_1.value.replace('+','')}?text={txt_msg.value}"
+            elif t == "E-mail": d = f"mailto:{txt_1.value}?body={txt_msg.value}"
             else: d = txt_1.value
 
             if not d: return
@@ -264,7 +246,7 @@ def main(page: ft.Page):
                 'logo_path': logo_path.value, 'estilo': dd_estilo.value,
                 'modo_color_qr': dd_modo.value, 
                 'c1': hex_c1.value, 'c2': hex_c2.value, 'grad_dir_qr': "Vertical",
-                'usar_ojos': sw_ojos.value, 'eye_ext': hex_eye_ext.value, 'eye_int': hex_eye_in.value,
+                'usar_ojos': False, 'eye_ext': "#000000", 'eye_int': "#000000",
                 'modo_fondo': dd_bg.value, 'bg_c1': hex_bg1.value, 'bg_c2': hex_bg2.value, 'grad_dir_bg': "Vertical"
             }
             
@@ -286,7 +268,6 @@ def main(page: ft.Page):
                 ft.Text("DATOS", color="green", weight="bold"), dd_tipo, txt_1, txt_2, txt_msg,
                 ft.Divider(),
                 ft.Text("DISEÑO", color="blue", weight="bold"), dd_estilo, dd_modo, row_colors,
-                sw_ojos, row_ojos,
                 dd_bg, row_bg,
                 ft.Divider(),
                 ft.Text("LOGO", color="orange", weight="bold"), btn_logo_select,
