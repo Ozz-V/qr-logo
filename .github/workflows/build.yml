@@ -13,14 +13,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # 1. INSTALAR LIBRERÍAS DE LINUX (LA CLAVE PARA PILLOW)
+      # Esto arregla el error de "jpeg headers" o "packaging failed"
+      - name: Install Linux Libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libjpeg-dev zlib1g-dev
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      # Aseguramos las dependencias (Pillow 10.0.0 es clave)
+      # 2. INSTALAR FLUTTER (PARA EVITAR PREGUNTAS)
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # 3. ACTUALIZAR PIP E INSTALAR DEPENDENCIAS
       - name: Install Dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install flet
           pip install -r requirements.txt
 
@@ -38,17 +53,13 @@ jobs:
           mkdir -p assets
           cp icon.png assets/icon.png
 
-      # --- EL TRUCO MAESTRO ---
-      # 1. "set +o pipefail": Evita que GitHub marque error cuando 'yes' termine.
-      # 2. "yes |": Responde "y" (yes) automáticamente a la pregunta de instalación.
+      # 4. COMPILAR (SIN PREGUNTAS, SIN ERRORES)
       - name: Build APK with Flet
-        shell: bash
         run: |
-          set +o pipefail
-          yes | flet build apk --verbose
+          flet build apk --verbose
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: QR-Logo-APP-FINAL
+          name: QR-Logo-Final-App
           path: build/apk/app-release.apk
