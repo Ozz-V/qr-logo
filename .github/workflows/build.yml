@@ -44,5 +44,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: QR-Logo-Full-Fixed
+          name: QR-Logo-Works
           path: build/apk/app-release.apk
