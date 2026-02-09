@@ -9,78 +9,61 @@ import traceback
 # ======================================================
 # MOTOR QR
 # ======================================================
-
 def hex_to_rgb(h):
     h = h.lstrip("#")
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
-def crear_fondo(w, h, modo, c1, c2):
-    if modo == "Transparente":
-        return Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    if modo == "Sólido (Color)":
-        return Image.new("RGBA", (w, h), c1 + (255,))
-    return Image.new("RGBA", (w, h), (255, 255, 255, 255))
+def generar_qr(data, logo_path, estilo):
+    qr = qrcode.QRCode(
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=10,
+        border=0,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
 
-def generar_qr_full_engine(params, data):
-    try:
-        qr = qrcode.QRCode(
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=10,
-            border=0
-        )
-        qr.add_data(data)
-        qr.make(fit=True)
+    matrix = qr.get_matrix()
+    modules = len(matrix)
+    size = modules * 40
 
-        matrix = qr.get_matrix()
-        modules = len(matrix)
-        size = modules * 40
+    mask = Image.new("L", (size, size), 0)
+    draw = ImageDraw.Draw(mask)
 
-        mask = Image.new("L", (size, size), 0)
-        draw = ImageDraw.Draw(mask)
-
-        for r in range(modules):
-            for c in range(modules):
-                if matrix[r][c]:
-                    x, y = c * 40, r * 40
+    for r in range(modules):
+        for c in range(modules):
+            if matrix[r][c]:
+                x, y = c * 40, r * 40
+                if estilo == "Circular (Puntos)":
+                    draw.ellipse([x, y, x+40, y+40], fill=255)
+                elif estilo == "Liquid Pro (Gusano)":
                     draw.rounded_rectangle(
-                        [x + 2, y + 2, x + 38, y + 38],
-                        radius=12,
+                        [x+2, y+2, x+38, y+38],
+                        radius=15,
                         fill=255
                     )
+                else:
+                    draw.rectangle([x, y, x+40, y+40], fill=255)
 
-        body_color = hex_to_rgb(params["c1"])
-        qr_layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-        body_img = Image.new("RGBA", (size, size), body_color + (255,))
-        qr_layer.paste(body_img, (0, 0), mask)
+    qr_color = Image.new("RGBA", (size, size), (0, 0, 0, 255))
+    qr_img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    qr_img.paste(qr_color, (0, 0), mask)
 
-        if params["logo_path"] and os.path.exists(params["logo_path"]):
-            logo = Image.open(params["logo_path"]).convert("RGBA")
-            logo = ImageOps.contain(logo, (int(size * 0.25), int(size * 0.25)))
-            pos = ((size - logo.width) // 2, (size - logo.height) // 2)
-            qr_layer.paste(logo, pos, logo)
+    if logo_path and os.path.exists(logo_path):
+        logo = Image.open(logo_path).convert("RGBA")
+        logo = ImageOps.contain(logo, (int(size * 0.25), int(size * 0.25)))
+        pos = ((size - logo.width)//2, (size - logo.height)//2)
+        qr_img.paste(logo, pos, logo)
 
-        bg = crear_fondo(
-            size + 80,
-            size + 80,
-            params["modo_fondo"],
-            hex_to_rgb(params["bg_c1"]),
-            hex_to_rgb(params["bg_c2"]),
-        )
+    bg = Image.new("RGBA", (size + 80, size + 80), (255, 255, 255, 255))
+    bg.paste(qr_img, (40, 40), qr_img)
 
-        bg.paste(qr_layer, (40, 40), qr_layer)
-
-        buf = io.BytesIO()
-        bg.save(buf, format="PNG")
-
-        return base64.b64encode(buf.getvalue()).decode(), buf.getvalue()
-
-    except:
-        return None, None
+    buf = io.BytesIO()
+    bg.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode(), buf.getvalue()
 
 # ======================================================
 # APP
 # ======================================================
-
 def main(page: ft.Page):
     try:
         page.title = "QR + Logo"
@@ -92,11 +75,8 @@ def main(page: ft.Page):
         qr_bytes = None
         logo_path = ""
 
-        # -------------------------------
-        # FilePickers (ANDROID SAFE)
-        # -------------------------------
-
-        def on_logo_picked(e: ft.FilePickerResultEvent):
+        # ================= FILE PICKERS =================
+        def on_logo_picked(e):
             nonlocal logo_path
             if e.files:
                 logo_path = e.files[0].path
@@ -104,21 +84,31 @@ def main(page: ft.Page):
                 btn_logo.bgcolor = "green"
                 page.update()
 
-        def on_save(e: ft.FilePickerResultEvent):
+        def on_save(e):
             if e.path and qr_bytes:
                 with open(e.path, "wb") as f:
                     f.write(qr_bytes)
-                page.show_snack_bar(ft.SnackBar(ft.Text("QR guardado")))
+                page.show_snack_bar(
+                    ft.SnackBar(ft.Text("QR guardado"), open=True)
+                )
 
         picker_logo = ft.FilePicker(on_result=on_logo_picked)
         picker_save = ft.FilePicker(on_result=on_save)
         page.overlay.extend([picker_logo, picker_save])
 
-        # -------------------------------
-        # UI
-        # -------------------------------
-
+        # ================= UI =================
         txt_data = ft.TextField(label="Texto / URL", bgcolor="#222222")
+
+        dd_style = ft.Dropdown(
+            label="Estilo",
+            value="Liquid Pro (Gusano)",
+            options=[
+                ft.dropdown.Option("Liquid Pro (Gusano)"),
+                ft.dropdown.Option("Normal (Cuadrado)"),
+                ft.dropdown.Option("Circular (Puntos)")
+            ],
+            bgcolor="#222222"
+        )
 
         btn_logo = ft.ElevatedButton(
             "Subir logo",
@@ -126,13 +116,18 @@ def main(page: ft.Page):
             on_click=lambda _: picker_logo.pick_files()
         )
 
-        img_preview = ft.Image(width=260, height=260, visible=False)
+        img_preview = ft.Image(
+            width=280,
+            height=280,
+            visible=False,
+            fit="contain"
+        )
 
         btn_save = ft.ElevatedButton(
             "Guardar QR",
             icon="save",
             disabled=True,
-            on_click=lambda _: picker_save.save_file("qr.png")
+            on_click=lambda _: picker_save.save_file(file_name="qr.png")
         )
 
         def generar(e):
@@ -140,17 +135,14 @@ def main(page: ft.Page):
             if not txt_data.value:
                 return
 
-            params = {
-                "logo_path": logo_path,
-                "c1": "#000000",
-                "bg_c1": "#FFFFFF",
-                "bg_c2": "#FFFFFF",
-                "modo_fondo": "Blanco (Default)",
-            }
+            b64, binary = generar_qr(
+                txt_data.value,
+                logo_path,
+                dd_style.value
+            )
 
-            b64, raw = generar_qr_full_engine(params, txt_data.value)
             if b64:
-                qr_bytes = raw
+                qr_bytes = binary
                 img_preview.src_base64 = b64
                 img_preview.visible = True
                 btn_save.disabled = False
@@ -167,18 +159,25 @@ def main(page: ft.Page):
         page.add(
             ft.Column(
                 [
-                    ft.Text("QR + Logo", size=24, weight="bold"),
+                    ft.Text("QR + LOGO", size=24, weight="bold"),
                     txt_data,
+                    dd_style,
                     btn_logo,
                     btn_gen,
                     img_preview,
-                    btn_save,
+                    btn_save
                 ],
-                spacing=15,
+                spacing=15
             )
         )
 
     except Exception:
-        page.add(ft.Text(traceback.format_exc(), color="red"))
+        page.add(
+            ft.Text(
+                traceback.format_exc(),
+                color="red",
+                selectable=True
+            )
+        )
 
 ft.app(target=main, assets_dir="assets")
