@@ -38,12 +38,11 @@ jobs:
           cp icon.png assets/icon.png
 
       - name: Build APK with Flet
-        # SIN EL COMANDO --product-name QUE DABA ERROR
         run: |
           yes | flet build apk --verbose
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: QR-Logo-App-Works
+          name: QR-Logo-Full-Fixed
           path: build/apk/app-release.apk
