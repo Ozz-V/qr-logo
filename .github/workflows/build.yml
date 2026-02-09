@@ -2,8 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -11,17 +10,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Install Python dependencies
+      - name: Install dependencies
         run: |
-          pip install flet==0.24.1
+          pip install flet==0.23.2
           pip install -r requirements.txt
 
       - name: Setup Java
@@ -33,28 +31,26 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 🔴 ESTO ES LO QUE TE FALTABA
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.6'
-          channel: 'stable'
+          channel: stable
           cache: true
 
       - name: Flutter doctor
         run: flutter doctor -v
 
-      - name: Prepare Assets
+      - name: Prepare assets
         run: |
           mkdir -p assets
           cp icon.png assets/icon.png
 
-      - name: Build APK with Flet
-        run: |
-          flet build apk --verbose
+      - name: Build APK
+        run: flet build apk --verbose
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: QR-Logo-Final
+          name: qr-logo-apk
           path: build/apk/app-release.apk
