@@ -1,3 +1,3 @@
 flet==0.23.2
 qrcode
-pillow
+Pillow==9.5.0
